@@ -18084,6 +18084,8 @@ int main() {
                                     delete[] nextConnection->email;
                                     nextConnection->email = onlyEmail;
                                 }
+                            } else {
+                                nextConnection->hashedSpawnSeed = 0;
                             }
 
                             char *pwHash = tokens->getElementDirect( 2 );
