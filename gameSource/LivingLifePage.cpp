@@ -49,6 +49,7 @@
 #include "minorGems/crypto/hashes/sha1.h"
 
 #include <stdlib.h>//#include <math.h>
+#include <string>
 
 
 #define OHOL_NON_EDITOR 1
@@ -14082,7 +14083,21 @@ void LivingLifePage::step() {
             char *tempEmail;
             
             if( strlen( userEmail ) > 0 ) {
-                tempEmail = stringDuplicate( userEmail );
+                std::string seededEmail = std::string{ userEmail };
+
+                // If user doesn't have a seed in their email field
+                if( seededEmail.find('|') == std::string::npos ) {
+                    std::string seed = SettingsManager::getStringSetting( "spawnSeed", "" );
+
+                    // And if the user has a seed set in settings
+                    if( seed != "" ) {
+                        // Add seed delim and then seed
+                        seededEmail += '|';
+                        seededEmail += seed;
+                        }
+                    }
+
+                tempEmail = stringDuplicate( seededEmail.c_str() );
                 }
             else {
                 // a blank email
@@ -14099,10 +14114,9 @@ void LivingLifePage::step() {
                 }
 
 
-            if( strlen( userEmail ) <= 80 ) {    
-                outMessage = autoSprintf( "%s %s %-80s %s %s %d%s#",
-                                          loginWord,
-                                          clientTag, tempEmail, pwHash, keyHash,
+            if( strlen( tempEmail ) <= 80 ) {    
+                outMessage = autoSprintf( "LOGIN %-80s %s %s %d%s#",
+                                          tempEmail, pwHash, keyHash,
                                           mTutorialNumber, twinExtra );
                 }
             else {
