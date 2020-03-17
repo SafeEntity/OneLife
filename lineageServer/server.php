@@ -698,7 +698,7 @@ function ls_showDetail( $checkPassword = true ) {
     global $tableNamePrefix;
     
 
-    $email = ls_requestFilter( "email", "/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+/i" );
+    $email = ls_requestFilter( "email", "/[A-Z0-9._%+\-]+/i" );
             
     $query = "SELECT id, life_count FROM $tableNamePrefix"."users ".
             "WHERE email = '$email';";
@@ -776,7 +776,7 @@ function ls_getSequenceNumber() {
     global $tableNamePrefix;
     
 
-    $email = ls_requestFilter( "email", "/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+/i", "" );
+    $email = ls_requestFilter( "email", "/[A-Z0-9._%+\-]+/i", "" );
 
     if( $email == "" ) {
         ls_log( "getSequenceNumber denied for bad email" );
@@ -1240,7 +1240,7 @@ function ls_logLife() {
     
 
     $server = ls_requestFilter( "server", "/[A-Z0-9.\-]+/i", "" );
-    $email = ls_requestFilter( "email", "/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+/i", "" );
+    $email = ls_requestFilter( "email", "/[A-Z0-9._%+\-]+/i", "" );
     $age = ls_requestFilter( "age", "/[0-9.]+/i", "0" );
 
     $player_id = ls_requestFilter( "player_id", "/[0-9]+/i", "0" );
