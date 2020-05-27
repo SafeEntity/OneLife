@@ -477,6 +477,18 @@ typedef struct ObjectRecord {
 
         char hasBadgePos;
         doublePair badgePos;
+        //2HOL additions for: password-protected doors      
+        //true for object that can transition into password-bearer, similar to how "writtable" and "written" flags are related
+        char canGetInGamePassword;
+        //true for object that can potentially be protected by a password
+        char canHaveInGamePassword;
+        //true for object actually protected by password
+        char hasInGamePassword;
+        int passID;
+        
+        SimpleVector<int> IndX;
+        SimpleVector<int> IndY;
+        SimpleVector<char*> IndPass;
 
     } ObjectRecord;
 
