@@ -25640,6 +25640,8 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                                     // not blank
                                     mHintFilterString = 
                                         stringDuplicate( trimmedFilterString );
+										
+									minitech::hintStr = mHintFilterString;
                                     }
                             
                                 delete [] trimmedFilterString;
