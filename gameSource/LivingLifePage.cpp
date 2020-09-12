@@ -24171,6 +24171,10 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
         if( destID > 0 && getObject( destID )->sideAccess ) {
             sideAccess = true;
             }
+			
+        if( destID > 0 && getObject( destID )->noBackAccess ) {
+            noBackAccess = true;
+            }
         
         if( destID > 0 && getObject( destID )->noBackAccess ) {
             noBackAccess = true;
