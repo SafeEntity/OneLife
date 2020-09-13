@@ -75,6 +75,9 @@ static SimpleVector<TapoutRecord> tapoutRecords;
 static int maxFoodValue = 0;
 
 
+static SimpleVector<TapoutRecord> tapoutRecords;
+
+
 
 
 typedef struct GlobalTrigger {

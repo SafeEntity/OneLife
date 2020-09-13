@@ -397,8 +397,6 @@ typedef struct ObjectRecord {
         char isFollowerOwned;
         
         char noHighlight;
-		
-		char noBackAccess;
         
         // for auto-orienting fences, walls, etc
         // all three objects know the IDs of all three objects
@@ -408,6 +406,11 @@ typedef struct ObjectRecord {
         int horizontalVersionID;
         int verticalVersionID;
         int cornerVersionID;
+		
+		
+		char isTapOutTrigger;
+		
+		char noBackAccess;
         
 
         char isTapOutTrigger;
