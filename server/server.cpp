@@ -2627,6 +2627,7 @@ typedef enum messageType {
     LEAD,
     UNFOL,
     FLIP,
+    RTIME,
     UNKNOWN
     } messageType;
 
