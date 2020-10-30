@@ -6738,7 +6738,7 @@ int getObjectParent( int inObjectID ) {
 
 
 
-int hideIDForClient( int inObjectID ) {    
+int hideIDForClient( int inObjectID ) { 
     if( inObjectID > 0 ) {
         ObjectRecord *o = getObject( inObjectID );
         if( o->isVariableDummy && o->isVariableHidden ) {
