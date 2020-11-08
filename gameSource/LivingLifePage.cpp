@@ -8789,7 +8789,6 @@ void LivingLifePage::draw( doublePair inViewCenter,
 					ObjectRecord* o = getObject(mMap[mapI]);
 					lightValue = o->heatValue;
 					isBlocker = o->permanent;
-					//isBlocker = true;
 				}
 				if (lightValue > 0) {
 					lightValue = lightValue > 3 ? lightValue : 3;
