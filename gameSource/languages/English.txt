@@ -524,6 +524,7 @@ noAllyCountMessage "YOU HAVE NO ALLIES."
 
 orderCommand "ORDER,"
 
+helpCommand "/HELP"
 
 
 fps "FPS"

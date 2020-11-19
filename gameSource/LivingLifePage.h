@@ -695,6 +695,8 @@ class LivingLifePage : public GamePage, public ActionListener {
         
         SpriteHandle mHomeArrowSprites[ NUM_HOME_ARROWS ];
         SpriteHandle mHomeArrowErasedSprites[ NUM_HOME_ARROWS ];
+		
+		SpriteHandle sheetSprites[9] = {nullptr};
         
         HomeArrow mHomeArrowStates[2][ NUM_HOME_ARROWS ];
 
