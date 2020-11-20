@@ -10033,6 +10033,9 @@ void LivingLifePage::draw( doublePair inViewCenter,
             
             slipPos.y += lrint( highestCravingYOffset / 1.75 );
 
+			if ( showHelp ) {
+				setDrawColor( 1, 1, 1, 0.2f );
+				}
             drawSprite( mHungerSlipSprites[i], slipPos );
             }
         }
