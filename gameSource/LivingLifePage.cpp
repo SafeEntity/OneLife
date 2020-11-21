@@ -25596,7 +25596,7 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
             break;
         case 'h':
         case 'H':
-            if( ! mSayField.isFocused() ) {
+            if( ! mSayField.isFocused() && ! vogMode ) {
                 showHelp = ! showHelp;
                 }
             break;
