@@ -6390,6 +6390,11 @@ doublePair getObjectBottomCenterOffset( ObjectRecord *inObject ) {
             // don't consider parts visible only when worn
             continue;
             }
+
+        if( inObject->spriteInvisibleWhenContained[i] == 1 ) {
+            // don't consider parts visible only when not contained
+            continue;
+            }
         
 
         double y = inObject->spritePos[i].y;
