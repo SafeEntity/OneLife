@@ -1293,6 +1293,7 @@ typedef enum messageType {
     HOMELAND,
     FLIP,
     CRAVING,
+	FLIP,
     PONG,
     COMPRESSED_MESSAGE,
     UNKNOWN
@@ -1463,6 +1464,9 @@ messageType getMessageType( char *inMessage ) {
         }
     else if( strcmp( copy, "CR" ) == 0 ) {
         returnValue = CRAVING;
+        }
+    else if( strcmp( copy, "FL" ) == 0 ) {
+        returnValue = FLIP;
         }
     
     delete [] copy;
@@ -14158,6 +14162,51 @@ void LivingLifePage::step() {
             if( numRead == 2 ) {
                 setNewCraving( foodID, bonus );
                 }
+            }
+        else if( type == FLIP ) {
+            int numLines;
+            char **lines = split( message, "\n", &numLines );
+
+            if( numLines > 0 ) {
+                delete [] lines[0];
+                }
+            
+            for( int i=1; i<numLines; i++ ) {
+                int id = 0;
+                int facingLeft = 0;
+                
+                int numRead = 
+                    sscanf( lines[i], "%d %d", &id, &facingLeft );
+            
+                if( numRead == 2 ) {
+                    LiveObject *o = getLiveObject( id );
+                    
+                    if( o != NULL && ! o->inMotion ) {
+                        char flip = false;
+                        
+                        if( facingLeft && ! o->holdingFlip ) {
+                            o->holdingFlip = true;
+                            flip = true;
+                            }
+                        else if( ! facingLeft && o->holdingFlip ) {
+                            o->holdingFlip = false;
+                            flip = true;
+                            }
+                        if( flip ) {
+                            o->lastAnim = moving;
+                            o->curAnim = ground2;
+                            o->lastAnimFade = 1;
+
+                            o->lastHeldAnim = moving;
+                            o->curHeldAnim = held;
+                            o->lastHeldAnimFade = 1;
+                            }
+                        }
+                    }
+                delete [] lines[i];
+                }
+            
+            delete [] lines;
             }
         else if( type == SEQUENCE_NUMBER ) {
             // need to respond with LOGIN message
