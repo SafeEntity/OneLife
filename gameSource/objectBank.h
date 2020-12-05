@@ -410,7 +410,9 @@ typedef struct ObjectRecord {
 		
 		char isTapOutTrigger;
 		
-		char noBackAccess;
+        char autoDefaultTrans;
+
+        char noBackAccess;
         
 
         char isTapOutTrigger;

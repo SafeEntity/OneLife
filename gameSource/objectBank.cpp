@@ -1047,8 +1047,10 @@ float initObjectBankStep() {
                 setupNoHighlight( r );
                 
                 setupMaxPickupAge( r );
-				
-				setupNoBackAccess( r );                
+                
+                setupAutoDefaultTrans( r );
+                
+                setupNoBackAccess( r );                
                 
                 setupAutoDefaultTrans( r );
                 
@@ -4130,8 +4132,10 @@ int addObject( const char *inDescription,
     setupNoHighlight( r );
                 
     setupMaxPickupAge( r );
-	
-	setupNoBackAccess( r );            
+
+    setupAutoDefaultTrans( r );
+
+    setupNoBackAccess( r );            
 
     setupAutoDefaultTrans( r );
 
