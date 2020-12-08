@@ -9497,6 +9497,138 @@ void LivingLifePage::draw( doublePair inViewCenter,
 		
 		File languagesDir( NULL, "languages" );
 		if ( languagesDir.exists() && languagesDir.isDirectory() ) {
+			File *helpFile = languagesDir.getChildFile( "help_English.txt" );
+			char *helpFileContents = helpFile->readFileContents();
+			if( helpFileContents != NULL ) {
+				int numLines;
+				char **lines = split( helpFileContents, "\n", &numLines );
+				char *subString;
+				for( int i=0; i<numLines; i++ ) {
+					bool isTitle = false;
+					bool isSub = false;
+					if ( (lines[i][0] == '\0') || (lines[i][0] == '\r') ) {
+						//continue;
+						}
+					else if ( strstr( lines[i], "@COLUMN_W" ) != NULL ) {
+						sscanf( lines[i], "@COLUMN_W=%d", &( columnWidth ) );
+						continue;
+						}
+					else if ( strstr( lines[i], "@COLUMN_H" ) != NULL ) {
+						sscanf( lines[i], "@COLUMN_H=%d", &( columnHeight ) );
+						writePos.y = lastScreenViewCenter.y + columnHeight / 2;
+						continue;
+						}
+					else if ( strstr( lines[i], "@COLUMN_O=" ) != NULL ) {
+						sscanf( lines[i], "@COLUMN_O=%d", &( columnOffset ) );
+						continue;
+						}
+					else if ( strstr( lines[i], "@START_X" ) != NULL ) {
+						sscanf( lines[i], "@START_X=%d", &( columnStartX ) );
+						writePos.x = lastScreenViewCenter.x + columnStartX;
+						continue;
+						}
+					else if ( strstr( lines[i], "@START_Y" ) != NULL ) {
+						sscanf( lines[i], "@START_Y=%d", &( columnStartY ) );
+						writePos.y = lastScreenViewCenter.y + columnStartY + columnHeight / 2;
+						continue;
+						}
+					else if ( strstr( lines[i], "@LINEHEIGHT" ) != NULL ) {
+						sscanf( lines[i], "@LINEHEIGHT=%d", &( lineHeight ) );
+						continue;
+						}					
+					else if ( strstr( lines[i], "#sheet" ) != NULL ) {
+						sscanf( lines[i], "#sheet%d", &( columnNumber ) );
+						writePos.y = lastScreenViewCenter.y + columnStartY + columnHeight / 2; //reset lineHeight additions
+						continue;
+						}
+					else if ( strstr( lines[i], "title$" ) != NULL ) {
+						int hNumLines;
+						char **holder;
+						holder = split( lines[i], "$", &hNumLines);
+						lines[i] = holder[1];
+						isTitle = true;
+						}
+					else if ( strstr( lines[i], "sub$" ) != NULL ) {
+						int hNumLines;
+						char **holder;
+						holder = split( lines[i], "$", &hNumLines);
+						lines[i] = holder[1];
+						subString = holder[2];
+						isSub = true;
+						}
+					else if ( strstr( lines[i], "space$" ) != NULL ) {
+						float lineScale;
+						sscanf( lines[i], "space$%f", &( lineScale ) );
+						writePos.y -= lineHeight * lineScale;
+						continue;
+						}
+					
+					if ( columnNumber == 0 ) {
+						continue;
+						}
+					else if ( columnNumber > 1 ) {
+						int current_columnX = columnStartX + ( abs( columnWidth ) + columnOffset ) * ( columnNumber - 1 );
+						writePos.x = lastScreenViewCenter.x + current_columnX;
+						}
+					
+					setDrawColor( 1, 1, 1, 0.85f );
+					if ( lastDrawnColumn != columnNumber ) {											
+						if ( sheetSprites[columnNumber] == nullptr ) {
+							char columnName[11] = "sheet";
+							char n[6];
+							sprintf( n, "%d.tga", columnNumber );
+							strcat( columnName, n );
+							sheetSprites[columnNumber] = loadSprite( columnName, false );
+							}
+							
+						doublePair drawPos;
+						drawPos.x = writePos.x + columnWidth / 2;
+						drawPos.y = lastScreenViewCenter.y + columnStartY;
+						drawSprite( sheetSprites[columnNumber], drawPos );
+						lastDrawnColumn = columnNumber;
+						}
+					
+					if ( isTitle ) {
+						setDrawColor( 0.1f, 0.1f, 0.1f, 1 );
+						int titleSize = titleFont->measureString( lines[i] );
+						titleFont->drawString( lines[i], { writePos.x + ( columnWidth - titleSize ) / 2, writePos.y - lineHeight }, alignLeft );
+						writePos.y -= lineHeight * 1.5f;
+						}
+					else if ( isSub ) {
+						setDrawColor( 0.2f, 0.4f, 0.6f, 1 );
+						handwritingFont->drawString( lines[i], { writePos.x + 60, writePos.y - lineHeight * 0.75f }, alignLeft );
+						int subSize = handwritingFont->measureString( lines[i] );
+						setDrawColor( 0.1f, 0.1f, 0.1f, 1 );
+						pencilFont->drawString( subString, { writePos.x + subSize + 80 , writePos.y - lineHeight * 0.75f }, alignLeft );
+						writePos.y -= lineHeight * 0.75;
+						}
+					else {
+						setDrawColor( 0.1f, 0.1f, 0.1f, 1 );
+						pencilFont->drawString( lines[i], { writePos.x + 40, writePos.y - lineHeight * 0.75f }, alignLeft );
+						writePos.y -= lineHeight;
+						}
+					}
+				delete [] lines;
+				}
+			}
+		}
+		int columnNumber = 0;
+		int columnWidth = 450;
+		int columnHeight = 600;
+		int columnOffset = 300;
+		
+		int lastDrawnColumn = 0;
+		int lineHeight = 40;
+		
+		int columnStartX = -600;
+		int columnStartY = -100;
+		
+		doublePair writePos;
+		writePos.x = lastScreenViewCenter.x + columnStartX;
+		writePos.y = lastScreenViewCenter.y + columnStartY + columnHeight / 2;
+		
+		File languagesDir( NULL, "languages" );
+		if ( languagesDir.exists() && languagesDir.isDirectory() ) {
 			File *helpFile = languagesDir.getChildFile( "help_English" );
 			char *helpFileContents = helpFile->readFileContents();
 			if( helpFileContents != NULL ) {
