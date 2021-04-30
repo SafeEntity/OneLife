@@ -37,6 +37,7 @@
 #include "minorGems/util/SettingsManager.h"
 #include "minorGems/util/random/JenkinsRandomSource.h"
 #include "minorGems/game/drawUtils.h"
+#include "minorGems/game/gameGraphics.h"
 
 #include "minorGems/io/file/File.h"
 
@@ -92,6 +93,8 @@ doublePair LivingLifePage::minitechGetLastScreenViewCenter() { return lastScreen
 
 static char shouldMoveCamera = true;
 
+static bool resetScale = true;
+
 
 extern double viewWidth;
 extern double viewHeight;
@@ -118,6 +121,17 @@ static char vogPickerOn = false;
     
 
 extern float musicLoudness;
+
+//FOV
+extern int gui_hud_mode;
+extern float gui_fov_scale;
+extern float gui_fov_scale_hud;
+extern float gui_fov_target_scale_hud;
+extern int gui_fov_offset_x;
+extern int gui_fov_offset_y;
+static SpriteHandle guiPanelLeftSprite;
+static SpriteHandle guiPanelTileSprite;
+static SpriteHandle guiPanelRightSprite;
 
 
 static JenkinsRandomSource randSource( 340403 );
@@ -308,7 +322,33 @@ static void clearLocationSpeech() {
     locationSpeech.deleteAll();
     }
 
+//FOV
+static double recalcOffsetX( double x, bool force = false ) {
+    double res;
+    if( gui_hud_mode == 0 || force ) {
+        res = x + ( ( x > 0. ) ? gui_fov_offset_x : -gui_fov_offset_x );
+        res /= 640. * gui_fov_target_scale_hud;
+        res *= 640.;
+        }
+    else {
+        res = x / gui_fov_target_scale_hud;
+        }
+    return res;
+    }
 
+static double recalcOffsetY( double y ) {
+    double res;
+    res = y + ( ( y > 0. ) ? gui_fov_offset_y : -gui_fov_offset_y );
+    res /= 360. * gui_fov_target_scale_hud;
+    res *= 360.;
+    return res;
+    }
+
+static doublePair recalcOffset( doublePair ofs, bool force = false ) {
+    ofs.x = recalcOffsetX( ofs.x, force );
+    ofs.y = recalcOffsetY( ofs.y );
+    return ofs;
+    }
 
 
 // most recent home at end
@@ -2943,6 +2983,27 @@ LivingLifePage::LivingLifePage()
     
     mLiveCravingSheetIndex = -1;
 
+    //FOV
+	calcOffsetHUD();
+
+	Image *tempImage = readTGAFile( "guiPanel.tga" );
+	Image *tempImage2;
+
+	tempImage2 = tempImage->getSubImage( tempImage->getWidth() / 2 - 640, 0, 512, tempImage->getHeight() );
+	guiPanelLeftSprite = fillSprite( tempImage2 );
+	delete tempImage2;
+
+	tempImage2 = tempImage->getSubImage( tempImage->getWidth() / 2 - 128, 0, 256, tempImage->getHeight() );
+	guiPanelTileSprite = fillSprite( tempImage2 );
+	setSpriteWrapping( guiPanelTileSprite, true, false );
+	delete tempImage2;
+
+	tempImage2 = tempImage->getSubImage( tempImage->getWidth() / 2 + 640 - 512, 0, 512, tempImage->getHeight() );
+	guiPanelRightSprite = fillSprite( tempImage2 );
+	delete tempImage2;
+
+	delete tempImage;
+	//
 
     mMap = new int[ mMapD * mMapD ];
     mMapBiomes = new int[ mMapD * mMapD ];
@@ -3233,6 +3294,11 @@ LivingLifePage::~LivingLifePage() {
 
     freeSprite( mGuiPanelSprite );
     freeSprite( mGuiBloodSprite );
+
+	//FOV
+	freeSprite( guiPanelLeftSprite );
+	freeSprite( guiPanelTileSprite );
+	freeSprite( guiPanelRightSprite );
     
     freeSprite( mFloorSplitSprite );
     
@@ -3514,13 +3580,12 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
         return;
         }
 
-    double lineSpacing = handwritingFont->getFontHeight() / 2 + 5;
+    double lineSpacing = handwritingFont->getFontHeight() / 2 + ( 5 * gui_fov_scale_hud );
     
     double firstLineY =  inPos.y + ( lines->size() - 1 ) * lineSpacing;
     
-    if( firstLineY > lastScreenViewCenter.y + 330 ) {
-        // off top of screen
-        firstLineY = lastScreenViewCenter.y + 330;
+    if( firstLineY > lastScreenViewCenter.y + recalcOffsetY( 330 ) * gui_fov_scale ) {
+        firstLineY = lastScreenViewCenter.y + recalcOffsetY( 330 ) * gui_fov_scale;
         }
     
     if( inPos.y < lastScreenViewCenter.y - 280 ) {
@@ -3577,12 +3642,12 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
     char colorOnly = false;
     
     if( savingSpeech && savingSpeechColor && inFade == 1.0 ) {
-        drawSquare( inPos, 1024 );
+        drawSquare( inPos, 1024 * gui_fov_scale );
         colorOnly = true;
         }
     else if( savingSpeech && savingSpeechMask && inFade == 1.0 ) {
         setDrawColor( 0, 0, 0, 1.0 );
-        drawSquare( inPos, 1024 );
+        drawSquare( inPos, 1024 * gui_fov_scale );
         setDrawColor( 1, 1, 1, 1 );
         maskOnly = true;
         }
@@ -3597,14 +3662,15 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
         
 
         double length = handwritingFont->measureString( line );
-            
-        int numBlots = lrint( 0.25 + length / 20 ) + 1;
+
+        //FOV
+        /*int numBlots = lrint( 0.25 + length / 20 ) + 1;
         
         if( inForceMinChalkBlots != -1 && numBlots < inForceMinChalkBlots ) {
             numBlots = inForceMinChalkBlots;
             }
     
-        doublePair blotSpacing = { 20, 0 };
+        doublePair blotSpacing = { 20, 0 };*/
     
         doublePair firstBlot = 
             { inPos.x, firstLineY - i * lineSpacing};
@@ -3621,21 +3687,22 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
             }
 
         
-        for( int b=0; b<numBlots; b++ ) {
-            doublePair blotPos = add( firstBlot, mult( blotSpacing, b ) );
+        for( doublePair blotPos = firstBlot; blotPos.x < inPos.x + ( length + 20 * gui_fov_scale_hud ); blotPos.x += 20 * gui_fov_scale_hud ) {
+            //doublePair blotPos = add( firstBlot, mult( blotSpacing, b ) );
+            blotPos.y = firstBlot.y;
         
             double rot = blotRandSource.getRandomDouble();
-            drawSprite( mChalkBlotSprite, blotPos, 1.0, rot );
-            drawSprite( mChalkBlotSprite, blotPos, 1.0, rot );
+            drawSprite( mChalkBlotSprite, blotPos, gui_fov_scale_hud, rot );
+            drawSprite( mChalkBlotSprite, blotPos, gui_fov_scale_hud, rot );
             
             // double hit vertically
-            blotPos.y += 5;
+            blotPos.y += ( 5 * gui_fov_scale_hud );
             rot = blotRandSource.getRandomDouble();
-            drawSprite( mChalkBlotSprite, blotPos, 1.0, rot );
+            drawSprite( mChalkBlotSprite, blotPos, gui_fov_scale_hud, rot );
             
-            blotPos.y -= 10;
+            blotPos.y -= ( 10 * gui_fov_scale_hud );
             rot = blotRandSource.getRandomDouble();
-            drawSprite( mChalkBlotSprite, blotPos, 1.0, rot );
+            drawSprite( mChalkBlotSprite, blotPos, gui_fov_scale_hud, rot );
             }
         }
     
@@ -5428,18 +5495,20 @@ void LivingLifePage::drawHungerMaxFillLine( doublePair inAteWordsPos,
     
     
     
-    doublePair barPos = { lastScreenViewCenter.x - 590, 
-                          lastScreenViewCenter.y - 334 };
-    barPos.x -= 12;
-    barPos.y -= 10;
-    
-    
-    barPos.x += 30 * inMaxFill;
+    //FOV
+	doublePair barPos = { lastScreenViewCenter.x - ( recalcOffsetX( 590 ) * gui_fov_scale ), 
+						  lastScreenViewCenter.y - ( recalcOffsetY( 334 ) * gui_fov_scale )};
 
-    if( ! inSkipBar ) {    
+    barPos.x -= 12 * gui_fov_scale_hud;
+    barPos.y -= 10 * gui_fov_scale_hud;
+    
+    
+    barPos.x += ( 30 * gui_fov_scale_hud ) * inMaxFill;
+
+    if( ! inSkipBar ) {
         drawSprite( inBarSprites[ inMaxFill %
                                   NUM_HUNGER_DASHES ], 
-                    barPos );
+                    barPos, gui_fov_scale_hud );
         }
     
 
@@ -5449,8 +5518,8 @@ void LivingLifePage::drawHungerMaxFillLine( doublePair inAteWordsPos,
 
     doublePair dashPos = inAteWordsPos;
             
-    dashPos.y -= 6;
-    dashPos.x -= 5;
+    dashPos.y -= 6 * gui_fov_scale_hud;
+    dashPos.x -= 5 * gui_fov_scale_hud;
 
     int numDashes = 0;
             
@@ -5465,22 +5534,22 @@ void LivingLifePage::drawHungerMaxFillLine( doublePair inAteWordsPos,
         
         drawSprite( inDashSprites[ numDashes %
                                    NUM_HUNGER_DASHES ], 
-                    drawPos );
-        dashPos.x -= 15;
+                    drawPos, gui_fov_scale_hud );
+        dashPos.x -= 15 * gui_fov_scale_hud;
         //numDashes += dashRandSource.getRandomBoundedInt( 1, 10 );
         numDashes += 1;
         
         // correct shortness of last one
         if( numDashes % NUM_HUNGER_DASHES == 0 ) {
-            dashPos.x += 3;
+            dashPos.x += 3 * gui_fov_scale_hud;
             }
         }
             
     // draw one more to connect to bar
-    dashPos.x = barPos.x + 6;
+    dashPos.x = barPos.x + ( 6 * gui_fov_scale_hud );
     drawSprite( inDashSprites[ numDashes %
                                NUM_HUNGER_DASHES ], 
-                dashPos );
+                dashPos, gui_fov_scale_hud );
     }
 
 
@@ -5722,6 +5791,23 @@ char isSick( LiveObject *inPlayer ) {
     }
 
 
+//FOV
+static void drawHUDBarPart( double x, double y, double width, double height ) {
+    doublePair barPos[4] = {
+        { x, y + height },
+        { x + width, y + height },
+        { x + width, y },
+        { x, y }
+        };
+    double gapLength = abs( barPos[0].x - barPos[1].x ) / ( 256. * gui_fov_scale_hud );
+    doublePair barTexCoords[4] = {
+        { 0.f, 0.f },
+        { gapLength, 0.f },
+        { gapLength, 1.f },
+        { 0.f , 1.f },
+        };
+    drawSprite( guiPanelTileSprite, barPos, barTexCoords );
+    }
 
 #define NUM_NUMBER_KEYS 21
 static const char *numberKeys[ NUM_NUMBER_KEYS ] = { 
@@ -6090,7 +6176,7 @@ void LivingLifePage::drawHomeSlip( doublePair inSlipPos, int inIndex ) {
                     
                 float v = 1.0 - a.fade;
                 setDrawColor( v, v, v, 1 );
-                drawSprite( mHomeArrowErasedSprites[i], arrowPos );
+                drawSprite( mHomeArrowErasedSprites[i], arrowPos, gui_fov_scale_hud );
                 }
             }
             
@@ -6103,7 +6189,7 @@ void LivingLifePage::drawHomeSlip( doublePair inSlipPos, int inIndex ) {
                 
             setDrawColor( 1, 1, 1, 1 );
                 
-            drawSprite( mHomeArrowSprites[arrowIndex], arrowPos );
+            drawSprite( mHomeArrowSprites[arrowIndex], arrowPos, gui_fov_scale_hud );
             }
                             
         toggleMultiplicativeBlend( false );
@@ -6114,11 +6200,11 @@ void LivingLifePage::drawHomeSlip( doublePair inSlipPos, int inIndex ) {
         doublePair mapHintPos = arrowPos;
 
         if( inIndex == 0 ) {
-            distPos.y -= 47;
+            distPos.y -= 47 * gui_fov_scale_hud;
             mapHintPos.y -= 47;
             }
         else {
-            distPos.y -= 47;
+            distPos.y -= 47 * gui_fov_scale_hud;
             mapHintPos.y -= 47;
             }
         
@@ -6511,13 +6597,18 @@ void LivingLifePage::draw( doublePair inViewCenter,
     int gridCenterY = 
         lrintf( lastScreenViewCenter.y / CELL_D ) - mMapOffsetY + mMapD/2;
     
-    // more on left and right of screen to avoid wide object tops popping in
-    int xStart = gridCenterX - 7;
-    int xEnd = gridCenterX + 7;
+    //FOV
+    // SIDE NOTE:  These 4 variables control how far items should be rendered, separately from biome drawing
 
-    // more on bottom of screen so that tall objects don't pop in
-    int yStart = gridCenterY - 6;
-    int yEnd = gridCenterY + 4;
+    // more on left and right of screen to avoid wide object tops popping in        
+    // SIDE NOTE:  x is scaled directly.  value * scale
+    int xStart = gridCenterX - (int)(ceil(7 * gui_fov_scale));
+    int xEnd = gridCenterX + (int)(ceil(7 * gui_fov_scale));
+
+    // more on bottom of screen so that tall objects don't pop in       
+    // SIDE NOTE:  y is scaled with offset.
+    int yStart = gridCenterY - (int)(ceil(5 * gui_fov_scale) + 1);   // Default: 6  (5 * scale + 1)
+    int yEnd = gridCenterY + (int)(ceil(5 * gui_fov_scale) - 1);     // Default: 4   (5 * scale - 1)
 
     if( xStart < 0 ) {
         xStart = 0;
@@ -6559,11 +6650,11 @@ void LivingLifePage::draw( doublePair inViewCenter,
     // tiles drawn on top).  However, given that we're not drawing anything
     // else out there, this should be okay from a performance standpoint.
 
-    int yStartFloor = gridCenterY - 4;
-    int yEndFloor = gridCenterY + 4;
+    int yStartFloor = gridCenterY - (int)(ceil(3 * gui_fov_scale + 1));
+    int yEndFloor = gridCenterY + (int)(ceil(3 * gui_fov_scale));
 
-    int xStartFloor = gridCenterX - 6;
-    int xEndFloor = gridCenterX + 6;
+    int xStartFloor = gridCenterX - (int)(ceil(5 * gui_fov_scale));
+    int xEndFloor = gridCenterX + (int)(ceil(5 * gui_fov_scale) + 1);
 
     
 
@@ -8386,8 +8477,8 @@ void LivingLifePage::draw( doublePair inViewCenter,
         
         speechPos.y += headPos.y;
         
-        int width = 250;
-        int widthLimit = 250;
+		int width = 250 * gui_fov_scale_hud;
+        int widthLimit = 250 * gui_fov_scale_hud;
         
         double fullWidth = 
             handwritingFont->measureString( o->currentSpeech );
@@ -8419,8 +8510,8 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
         speechPos.y += 84;
         
-        int width = 250;
-        int widthLimit = 250;
+        int width = 250 * gui_fov_scale_hud;
+        int widthLimit = 250 * gui_fov_scale_hud;
         
         double fullWidth = 
             handwritingFont->measureString( ls->speech );
@@ -9080,7 +9171,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
         
         setDrawColor( 1, 1, 1, apocalypseDisplayProgress );
         
-        drawRect( lastScreenViewCenter, 640, 360 );
+        drawRect( lastScreenViewCenter, 640 * gui_fov_scale, 360 * gui_fov_scale );
         
         toggleAdditiveBlend( false );
         }
@@ -9101,6 +9192,9 @@ void LivingLifePage::draw( doublePair inViewCenter,
             delete [] message;
             }
         else if( photoSig != NULL ) {
+            float currentFOV = gui_fov_scale;
+            changeFOV( 1.0 );
+
             doublePair pos;
             
             pos.x = takingPhotoGlobalPos.x;
@@ -9176,6 +9270,8 @@ void LivingLifePage::draw( doublePair inViewCenter,
             photoSig = NULL;
             photoSequenceNumber = -1;
             waitingForPhotoSig = false;
+
+            changeFOV( currentFOV );
             }
         }
     
@@ -9487,16 +9583,19 @@ void LivingLifePage::draw( doublePair inViewCenter,
         }
     
 	if( showHelp ) {
+		
 		int columnNumber = 0;
-		int columnWidth = 450;
-		int columnHeight = 600;
-		int columnOffset = 300;
+		int columnWidth = 450 * gui_fov_scale;
+		int columnHeight = 600 * gui_fov_scale;
+		int columnOffset = 300 * gui_fov_scale;
 		
 		int lastDrawnColumn = 0;
-		int lineHeight = 40;
+		int lineHeight = 40 * gui_fov_scale;
 		
-		int columnStartX = -600;
-		int columnStartY = -100;
+		int columnStartX = -600 * gui_fov_scale;
+		int columnStartY = -100 * gui_fov_scale;
+		
+		int temp;
 		
 		doublePair writePos;
 		writePos.x = lastScreenViewCenter.x + columnStartX;
@@ -9518,35 +9617,41 @@ void LivingLifePage::draw( doublePair inViewCenter,
 						//continue;
 						}
 					else if ( strstr( lines[i], "@COLUMN_W" ) != NULL ) {
-						sscanf( lines[i], "@COLUMN_W=%d", &( columnWidth ) );
+						sscanf( lines[i], "@COLUMN_W=%d", &( temp ) );
+						columnWidth = gui_fov_scale * temp;
 						continue;
 						}
 					else if ( strstr( lines[i], "@COLUMN_H" ) != NULL ) {
-						sscanf( lines[i], "@COLUMN_H=%d", &( columnHeight ) );
-						writePos.y = lastScreenViewCenter.y + columnHeight / 2;
+						sscanf( lines[i], "@COLUMN_H=%d", &( temp ) );
+						columnHeight = gui_fov_scale * temp;
+						writePos.y = lastScreenViewCenter.y + columnHeight/2;
 						continue;
 						}
 					else if ( strstr( lines[i], "@COLUMN_O=" ) != NULL ) {
-						sscanf( lines[i], "@COLUMN_O=%d", &( columnOffset ) );
+						sscanf( lines[i], "@COLUMN_O=%d", &( temp ) );
+						columnOffset = gui_fov_scale * temp;
 						continue;
 						}
 					else if ( strstr( lines[i], "@START_X" ) != NULL ) {
-						sscanf( lines[i], "@START_X=%d", &( columnStartX ) );
+						sscanf( lines[i], "@START_X=%d", &( temp ) );
+						columnStartX = gui_fov_scale * temp;
 						writePos.x = lastScreenViewCenter.x + columnStartX;
 						continue;
 						}
 					else if ( strstr( lines[i], "@START_Y" ) != NULL ) {
-						sscanf( lines[i], "@START_Y=%d", &( columnStartY ) );
-						writePos.y = lastScreenViewCenter.y + columnStartY + columnHeight / 2;
+						sscanf( lines[i], "@START_Y=%d", &( temp ) );
+						columnStartY = gui_fov_scale * temp;
+						writePos.y = lastScreenViewCenter.y + columnStartY + columnHeight/2;
 						continue;
 						}
 					else if ( strstr( lines[i], "@LINEHEIGHT" ) != NULL ) {
-						sscanf( lines[i], "@LINEHEIGHT=%d", &( lineHeight ) );
+						sscanf( lines[i], "@LINEHEIGHT=%d", &( temp ) );
+						lineHeight = gui_fov_scale * temp;
 						continue;
 						}					
 					else if ( strstr( lines[i], "#sheet" ) != NULL ) {
 						sscanf( lines[i], "#sheet%d", &( columnNumber ) );
-						writePos.y = lastScreenViewCenter.y + columnStartY + columnHeight / 2; //reset lineHeight additions
+						writePos.y = lastScreenViewCenter.y + columnStartY + columnHeight/2; //reset lineHeight additions
 						continue;
 						}
 					else if ( strstr( lines[i], "warning$" ) != NULL ) {
@@ -9597,9 +9702,9 @@ void LivingLifePage::draw( doublePair inViewCenter,
 							}
 							
 						doublePair drawPos;
-						drawPos.x = writePos.x + columnWidth / 2;
+						drawPos.x = writePos.x + columnWidth/2;
 						drawPos.y = lastScreenViewCenter.y + columnStartY;
-						drawSprite( sheetSprites[columnNumber], drawPos );
+						drawSprite( sheetSprites[columnNumber], drawPos, gui_fov_scale );
 						lastDrawnColumn = columnNumber;
 						}
 						
@@ -9609,152 +9714,20 @@ void LivingLifePage::draw( doublePair inViewCenter,
 					else if ( isTitle ) {
 						setDrawColor( 0.1f, 0.1f, 0.1f, 1 );
 						int titleSize = titleFont->measureString( lines[i] );
-						titleFont->drawString( lines[i], { writePos.x + ( columnWidth - titleSize ) / 2, writePos.y - lineHeight }, alignLeft );
+						titleFont->drawString( lines[i], { writePos.x + (columnWidth - titleSize)/2, writePos.y - lineHeight }, alignLeft );
 						writePos.y -= lineHeight * 1.5f;
 						}
 					else if ( isSub ) {
 						setDrawColor( 0.2f, 0.4f, 0.6f, 1 );
-						handwritingFont->drawString( lines[i], { writePos.x + 60, writePos.y - lineHeight * 0.75f }, alignLeft );
+						handwritingFont->drawString( lines[i], { writePos.x + 60 * gui_fov_scale, writePos.y - lineHeight * 0.75f }, alignLeft );
 						int subSize = handwritingFont->measureString( lines[i] );
 						setDrawColor( 0.1f, 0.1f, 0.1f, 1 );
-						pencilFont->drawString( subString, { writePos.x + subSize + 80 , writePos.y - lineHeight * 0.75f }, alignLeft );
+						pencilFont->drawString( subString, { writePos.x + subSize + 80 * gui_fov_scale, writePos.y - lineHeight * 0.75f }, alignLeft );
 						writePos.y -= lineHeight * 0.75;
 						}
 					else {
 						setDrawColor( 0.1f, 0.1f, 0.1f, 1 );
-						pencilFont->drawString( lines[i], { writePos.x + 40, writePos.y - lineHeight * 0.75f }, alignLeft );
-						writePos.y -= lineHeight;
-						}
-					}
-				delete [] lines;
-				}
-			}
-		}
-		int columnNumber = 0;
-		int columnWidth = 450;
-		int columnHeight = 600;
-		int columnOffset = 300;
-		
-		int lastDrawnColumn = 0;
-		int lineHeight = 40;
-		
-		int columnStartX = -600;
-		int columnStartY = -100;
-		
-		doublePair writePos;
-		writePos.x = lastScreenViewCenter.x + columnStartX;
-		writePos.y = lastScreenViewCenter.y + columnStartY + columnHeight / 2;
-		
-		File languagesDir( NULL, "languages" );
-		if ( languagesDir.exists() && languagesDir.isDirectory() ) {
-			File *helpFile = languagesDir.getChildFile( "help_English.txt" );
-			char *helpFileContents = helpFile->readFileContents();
-			if( helpFileContents != NULL ) {
-				int numLines;
-				char **lines = split( helpFileContents, "\n", &numLines );
-				char *subString;
-				for( int i=0; i<numLines; i++ ) {
-					bool isTitle = false;
-					bool isSub = false;
-					if ( (lines[i][0] == '\0') || (lines[i][0] == '\r') ) {
-						//continue;
-						}
-					else if ( strstr( lines[i], "@COLUMN_W" ) != NULL ) {
-						sscanf( lines[i], "@COLUMN_W=%d", &( columnWidth ) );
-						continue;
-						}
-					else if ( strstr( lines[i], "@COLUMN_H" ) != NULL ) {
-						sscanf( lines[i], "@COLUMN_H=%d", &( columnHeight ) );
-						writePos.y = lastScreenViewCenter.y + columnHeight / 2;
-						continue;
-						}
-					else if ( strstr( lines[i], "@COLUMN_O=" ) != NULL ) {
-						sscanf( lines[i], "@COLUMN_O=%d", &( columnOffset ) );
-						continue;
-						}
-					else if ( strstr( lines[i], "@START_X" ) != NULL ) {
-						sscanf( lines[i], "@START_X=%d", &( columnStartX ) );
-						writePos.x = lastScreenViewCenter.x + columnStartX;
-						continue;
-						}
-					else if ( strstr( lines[i], "@START_Y" ) != NULL ) {
-						sscanf( lines[i], "@START_Y=%d", &( columnStartY ) );
-						writePos.y = lastScreenViewCenter.y + columnStartY + columnHeight / 2;
-						continue;
-						}
-					else if ( strstr( lines[i], "@LINEHEIGHT" ) != NULL ) {
-						sscanf( lines[i], "@LINEHEIGHT=%d", &( lineHeight ) );
-						continue;
-						}					
-					else if ( strstr( lines[i], "#sheet" ) != NULL ) {
-						sscanf( lines[i], "#sheet%d", &( columnNumber ) );
-						writePos.y = lastScreenViewCenter.y + columnStartY + columnHeight / 2; //reset lineHeight additions
-						continue;
-						}
-					else if ( strstr( lines[i], "title$" ) != NULL ) {
-						int hNumLines;
-						char **holder;
-						holder = split( lines[i], "$", &hNumLines);
-						lines[i] = holder[1];
-						isTitle = true;
-						}
-					else if ( strstr( lines[i], "sub$" ) != NULL ) {
-						int hNumLines;
-						char **holder;
-						holder = split( lines[i], "$", &hNumLines);
-						lines[i] = holder[1];
-						subString = holder[2];
-						isSub = true;
-						}
-					else if ( strstr( lines[i], "space$" ) != NULL ) {
-						float lineScale;
-						sscanf( lines[i], "space$%f", &( lineScale ) );
-						writePos.y -= lineHeight * lineScale;
-						continue;
-						}
-					
-					if ( columnNumber == 0 ) {
-						continue;
-						}
-					else if ( columnNumber > 1 ) {
-						int current_columnX = columnStartX + ( abs( columnWidth ) + columnOffset ) * ( columnNumber - 1 );
-						writePos.x = lastScreenViewCenter.x + current_columnX;
-						}
-					
-					setDrawColor( 1, 1, 1, 0.85f );
-					if ( lastDrawnColumn != columnNumber ) {											
-						if ( sheetSprites[columnNumber] == nullptr ) {
-							char columnName[11] = "sheet";
-							char n[6];
-							sprintf( n, "%d.tga", columnNumber );
-							strcat( columnName, n );
-							sheetSprites[columnNumber] = loadSprite( columnName, false );
-							}
-							
-						doublePair drawPos;
-						drawPos.x = writePos.x + columnWidth / 2;
-						drawPos.y = lastScreenViewCenter.y + columnStartY;
-						drawSprite( sheetSprites[columnNumber], drawPos );
-						lastDrawnColumn = columnNumber;
-						}
-					
-					if ( isTitle ) {
-						setDrawColor( 0.1f, 0.1f, 0.1f, 1 );
-						int titleSize = titleFont->measureString( lines[i] );
-						titleFont->drawString( lines[i], { writePos.x + ( columnWidth - titleSize ) / 2, writePos.y - lineHeight }, alignLeft );
-						writePos.y -= lineHeight * 1.5f;
-						}
-					else if ( isSub ) {
-						setDrawColor( 0.2f, 0.4f, 0.6f, 1 );
-						handwritingFont->drawString( lines[i], { writePos.x + 60, writePos.y - lineHeight * 0.75f }, alignLeft );
-						int subSize = handwritingFont->measureString( lines[i] );
-						setDrawColor( 0.1f, 0.1f, 0.1f, 1 );
-						pencilFont->drawString( subString, { writePos.x + subSize + 80 , writePos.y - lineHeight * 0.75f }, alignLeft );
-						writePos.y -= lineHeight * 0.75;
-						}
-					else {
-						setDrawColor( 0.1f, 0.1f, 0.1f, 1 );
-						pencilFont->drawString( lines[i], { writePos.x + 40, writePos.y - lineHeight * 0.75f }, alignLeft );
+						pencilFont->drawString( lines[i], { writePos.x + 40 * gui_fov_scale, writePos.y - lineHeight * 0.75f }, alignLeft );
 						writePos.y -= lineHeight;
 						}
 					}
@@ -9837,20 +9810,20 @@ void LivingLifePage::draw( doublePair inViewCenter,
             
 
             setDrawColor( 0, 0, 0, 1.0f );
-            double lineSpacing = handwritingFont->getFontHeight() / 2 + 5;
+            double lineSpacing = handwritingFont->getFontHeight() / 2 + ( 5 * gui_fov_scale_hud );
             
             int numLines;
             
             char **lines = split( mHintMessage[i], "#", &numLines );
             
             doublePair lineStart = hintPos;
-            lineStart.x -= 280;
-            lineStart.y += 30;
+            lineStart.x -= (280 * gui_fov_scale_hud);
+            lineStart.y += (30 * gui_fov_scale_hud);
             for( int l=0; l<numLines; l++ ) {
                 
                 if( l == 1 ) {
                     doublePair drawPos = lineStart;
-                    drawPos.x -= 5;
+                    drawPos.x -= 5 * gui_fov_scale_hud;
                     
                     handwritingFont->drawString( "+",
                                                  drawPos, alignRight );
@@ -9858,7 +9831,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
                 
                 if( l == 2 ) {
                     doublePair drawPos = lineStart;
-                    drawPos.x -= 5;
+                    drawPos.x -= 5 * gui_fov_scale_hud;
                     
                     handwritingFont->drawString( "=",
                                                  drawPos, alignRight );
@@ -9879,12 +9852,12 @@ void LivingLifePage::draw( doublePair inViewCenter,
                 // now draw tab message
                 
                 lineStart = hintPos;
-                lineStart.x -= 280;
+                lineStart.x -= (280 * gui_fov_scale_hud);
                 
-                lineStart.x -= mHintExtraOffset[i].x;
-                lineStart.x += 20;
+                lineStart.x -= mHintExtraOffset[i].x * gui_fov_scale_hud;
+                lineStart.x += (20 * gui_fov_scale_hud);
                 
-                lineStart.y += 30;
+                lineStart.y += (30 * gui_fov_scale_hud);
                 
                 handwritingFont->drawString( pageNum, lineStart, alignLeft );
                 
@@ -9929,12 +9902,12 @@ void LivingLifePage::draw( doublePair inViewCenter,
             
             setDrawColor( 1, 1, 1, 1 );
             // rotate 180
-            drawSprite( mHintSheetSprites[i], tutorialPos, 1.0, 0.5,
+            drawSprite( mHintSheetSprites[i], tutorialPos, gui_fov_scale_hud, 0.5,
                         mTutorialFlips[i] );
             
 
             setDrawColor( 0, 0, 0, 1.0f );
-            double lineSpacing = handwritingFont->getFontHeight() / 2 + 16;
+            double lineSpacing = handwritingFont->getFontHeight() / 2 + ( 16 * gui_fov_scale_hud );
             
             int numLines;
             
@@ -9943,15 +9916,15 @@ void LivingLifePage::draw( doublePair inViewCenter,
             doublePair lineStart = tutorialPos;
             
             if( i % 2 == 1 ) {
-                lineStart.x -= 289;
+                lineStart.x -= 289 * gui_fov_scale_hud;
                 //lineStart.x += mTutorialExtraOffset[i].x;
                 }
             else {
-                lineStart.x += 289;
+                lineStart.x += 289 * gui_fov_scale_hud;
                 lineStart.x -= mTutorialExtraOffset[i].x;
                 }
             
-            lineStart.y += 8;
+            lineStart.y += 8 * gui_fov_scale_hud;
             for( int l=0; l<numLines; l++ ) {
                 
                 handwritingFont->drawString( lines[l], 
@@ -10054,7 +10027,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
 			if ( showHelp ) {
 				setDrawColor( 1, 1, 1, 0.2f );
 				}
-            drawSprite( mHungerSlipSprites[i], slipPos );
+            drawSprite( mHungerSlipSprites[i], slipPos, gui_fov_scale_hud );
             }
         }
 
@@ -10069,10 +10042,10 @@ void LivingLifePage::draw( doublePair inViewCenter,
             slipPos.y += lrint( highestCravingYOffset / 1.75 );
             
             setDrawColor( 1, 1, 1, 1 );
-            drawSprite( mYumSlipSprites[i], slipPos );
+            drawSprite( mYumSlipSprites[i], slipPos, gui_fov_scale_hud );
             
             doublePair messagePos = slipPos;
-            messagePos.y += 11;
+            messagePos.y += 11 * gui_fov_scale_hud;
 
             if( mYumSlipNumberToShow[i] != 0 ) {
                 char *s = autoSprintf( "%dx", mYumSlipNumberToShow[i] );
@@ -10135,22 +10108,22 @@ void LivingLifePage::draw( doublePair inViewCenter,
     // finally, draw chat note sheet, so that it covers craving sheet
     // whenever it is up.
 
-    int lineSpacing = 20;
+    int lineSpacing = 20 * gui_fov_scale_hud;
 
-    doublePair notePos = add( mNotePaperPosOffset, lastScreenViewCenter );
+    doublePair notePos = add( mult( recalcOffset( mNotePaperPosOffset ), gui_fov_scale ), lastScreenViewCenter );
 
     if( ! equal( mNotePaperPosOffset, mNotePaperHideOffset ) ) {
         setDrawColor( 1, 1, 1, 1 );
-        drawSprite( mNotePaperSprite, notePos );
+        drawSprite( mNotePaperSprite, notePos, gui_fov_scale_hud );
         
 
         doublePair drawPos = notePos;
 
-        drawPos.x += 160;
-        drawPos.y += 79;
-        drawPos.y += 22;
+        drawPos.x += 160 * gui_fov_scale_hud;
+        drawPos.y += 79 * gui_fov_scale_hud;
+        drawPos.y += 22 * gui_fov_scale_hud;
         
-        drawPos.x += 27;
+        drawPos.x += 27 * gui_fov_scale_hud;
 
         setDrawColor( 0, 0, 0, 1 );
         
@@ -10162,7 +10135,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
     
 
-    doublePair paperPos = add( mNotePaperPosOffset, lastScreenViewCenter );
+    doublePair paperPos = add( mult( recalcOffset( mNotePaperPosOffset ), gui_fov_scale ), lastScreenViewCenter );
 
     if( mSayField.isFocused() ) {
         char *partialSay = mSayField.getText();
@@ -10171,7 +10144,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
         
         delete [] partialSay;
 
-        SimpleVector<char*> *lines = splitLines( strUpper, 345 );
+        SimpleVector<char*> *lines = splitLines( strUpper, ( 345 * gui_fov_scale_hud ) );
         
         mNotePaperPosTargetOffset.y = mNotePaperHideOffset.y + 58;
         
@@ -10181,8 +10154,8 @@ void LivingLifePage::draw( doublePair inViewCenter,
         
         doublePair drawPos = paperPos;
 
-        drawPos.x -= 160;
-        drawPos.y += 79;
+        drawPos.x -= 160 * gui_fov_scale_hud;
+        drawPos.y += 79 * gui_fov_scale_hud;
 
 
         doublePair drawPosTemp = drawPos;
@@ -10215,7 +10188,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
                 mErasedNoteChars.push_back( oldString[j] );
                        
                 mErasedNoteCharOffsets.push_back(
-                    sub( charPos.getElementDirect( j ),
+                    sub( mult( charPos.getElementDirect( j ), 1. / gui_fov_scale_hud ),
                          paperPos ) );
                 
                 mErasedNoteCharFades.push_back( 1.0f );
@@ -10272,8 +10245,8 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
         doublePair drawPos = paperPos;
 
-        drawPos.x -= 160;
-        drawPos.y += 79;
+        drawPos.x -= 160 * gui_fov_scale_hud;
+        drawPos.y += 79 * gui_fov_scale_hud;
 
         for( int i=0; i<mLastKnownNoteLines.size(); i++ ) {
             // whole line gone
@@ -10315,7 +10288,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
             drawCharacterSprite( 
                 mErasedNoteChars.getElementDirect( i ), 
                 add( paperPos, 
-                     mErasedNoteCharOffsets.getElementDirect( i ) ) );
+                     mult( mErasedNoteCharOffsets.getElementDirect( i ), gui_fov_scale_hud ) ) );
         }
 
 
@@ -10326,8 +10299,45 @@ void LivingLifePage::draw( doublePair inViewCenter,
     // info panel at bottom, over top of all the other slips
     setDrawColor( 1, 1, 1, 1 );
     doublePair panelPos = lastScreenViewCenter;
-    panelPos.y -= 242 + 32 + 16 + 6;
-    drawSprite( mGuiPanelSprite, panelPos );
+	
+	    //FOV
+	panelPos.y -= recalcOffsetY( 242 + 32 + 16 + 6 ) * gui_fov_scale;
+	// First left part.
+	if( gui_hud_mode == 0 ) {
+		panelPos.x = lastScreenViewCenter.x - recalcOffsetX( 384 ) * gui_fov_scale;
+		drawSprite( guiPanelLeftSprite, panelPos, gui_fov_scale_hud );
+        }
+    else if ( gui_hud_mode == 1 && gui_fov_target_scale_hud > 1.0f ) {
+		drawHUDBarPart(	lastScreenViewCenter.x - 640 * gui_fov_scale,
+						lastScreenViewCenter.y - recalcOffsetY( 360 ) * gui_fov_scale,
+						( 1280.0 * gui_fov_scale / 2.0 ) - 640 * gui_fov_scale_hud,
+						getSpriteHeight( guiPanelTileSprite ) * gui_fov_scale_hud );
+        }
+
+	// Now the middle.
+	if( gui_hud_mode == 0 )	{
+		drawHUDBarPart(	lastScreenViewCenter.x - recalcOffsetX( 128 ) * gui_fov_scale,
+						lastScreenViewCenter.y - recalcOffsetY( 360 ) * gui_fov_scale,
+						recalcOffsetX( 128 ) * 2 * gui_fov_scale,
+						getSpriteHeight( guiPanelTileSprite ) * gui_fov_scale_hud );
+        }
+	else {
+		drawSprite( mGuiPanelSprite, panelPos, gui_fov_scale_hud );
+        }
+
+	// And finally draw the right end.
+	if( gui_hud_mode == 0 )	{
+		panelPos.x = lastScreenViewCenter.x + recalcOffsetX( 384 ) * gui_fov_scale;
+		drawSprite( guiPanelRightSprite, panelPos, gui_fov_scale_hud );
+        }
+	else if ( gui_hud_mode == 1 && gui_fov_target_scale_hud > 1.0f )	{
+		drawHUDBarPart(	lastScreenViewCenter.x + 640 * gui_fov_scale_hud,
+						lastScreenViewCenter.y - recalcOffsetY( 360 ) * gui_fov_scale,
+						( 1280.0 * gui_fov_scale / 2.0 ) - 640 * gui_fov_scale_hud,
+						getSpriteHeight( guiPanelTileSprite ) * gui_fov_scale_hud );
+        }
+
+	panelPos.x = lastScreenViewCenter.x;
     
     if ( showHelp && closeMessage != NULL ) {
     	setDrawColor( 0.4f, 0.1f, 0.1f, 1 );
@@ -10339,9 +10349,9 @@ void LivingLifePage::draw( doublePair inViewCenter,
         ! ourLiveObject->sick ) {
         toggleMultiplicativeBlend( true );
         doublePair bloodPos = panelPos;
-        bloodPos.y -= 32;
-        bloodPos.x -= 32;
-        drawSprite( mGuiBloodSprite, bloodPos );
+        bloodPos.y -= 32 * gui_fov_scale_hud;
+        bloodPos.x -= 32 * gui_fov_scale_hud;
+        drawSprite( mGuiBloodSprite, bloodPos, gui_fov_scale_hud );
         toggleMultiplicativeBlend( false );
         }
     
@@ -10361,11 +10371,11 @@ void LivingLifePage::draw( doublePair inViewCenter,
             }
 
         // show as a sigil to right of temp meter
-        doublePair curseTokenPos = { lastScreenViewCenter.x + 621, 
-                                     lastScreenViewCenter.y - 316 };
+		doublePair curseTokenPos = { lastScreenViewCenter.x + ( recalcOffsetX( 621 ) * gui_fov_scale ), 
+									 lastScreenViewCenter.y - ( recalcOffsetY( 316 ) * gui_fov_scale )};
         curseTokenFont->drawString( "C", curseTokenPos, alignCenter );
         curseTokenFont->drawString( "+", curseTokenPos, alignCenter );
-        curseTokenPos.x += 6;
+        curseTokenPos.x += ( 6 * gui_fov_scale_hud );
         curseTokenFont->drawString( "X", curseTokenPos, alignCenter );
         
         
@@ -10374,8 +10384,8 @@ void LivingLifePage::draw( doublePair inViewCenter,
         if( ourLiveObject->excessCursePoints > 0 ) {
             setDrawColor( 0, 0, 0, 1.0 );
             doublePair pointsPos = curseTokenPos;
-            pointsPos.y -= 22;
-            pointsPos.x -= 3;
+            pointsPos.y -= curseTokenFont->getFontHeight();
+            pointsPos.x -= ( 3 * gui_fov_scale_hud );
             
             char *pointString = autoSprintf( "%d", 
                                              ourLiveObject->excessCursePoints );
@@ -10383,52 +10393,56 @@ void LivingLifePage::draw( doublePair inViewCenter,
             delete [] pointString;
             }
         
+        //char *curseString = autoSprintf( "%d", ourLiveObject->curseLevel );
+        //curseTokenPos.x -= ( 3 * scaleHUD );
+        //curseTokenPos.y -= curseTokenFont->getFontHeight();
+        //handwritingFont->drawString( curseString, curseTokenPos, alignCenter );
 
         setDrawColor( 1, 1, 1, 1 );
         toggleMultiplicativeBlend( true );
 
         for( int i=0; i<ourLiveObject->foodCapacity; i++ ) {
-            doublePair pos = { lastScreenViewCenter.x - 590, 
-                               lastScreenViewCenter.y - 334 };
-        
-            pos.x += i * 30;
+            doublePair pos = { lastScreenViewCenter.x - ( recalcOffsetX( 590 ) * gui_fov_scale ), 
+                               lastScreenViewCenter.y - ( recalcOffsetY( 334 ) * gui_fov_scale )};
+            pos.x += i * ( 30 * gui_fov_scale_hud );
+			
             drawSprite( 
                     mHungerBoxSprites[ i % NUM_HUNGER_BOX_SPRITES ], 
-                    pos );
+                    pos, gui_fov_scale_hud );
                 
             if( i < ourLiveObject->foodStore ) {                
                 drawSprite( 
                     mHungerBoxFillSprites[ i % NUM_HUNGER_BOX_SPRITES ], 
-                    pos );
+                    pos, gui_fov_scale_hud );
                 }
             else if( i < ourLiveObject->maxFoodStore ) {
                 drawSprite( 
                     mHungerBoxFillErasedSprites[ i % NUM_HUNGER_BOX_SPRITES ], 
-                    pos );
+                    pos, gui_fov_scale_hud );
                 }
             }
         for( int i=ourLiveObject->foodCapacity; 
              i < ourLiveObject->maxFoodCapacity; i++ ) {
-            doublePair pos = { lastScreenViewCenter.x - 590, 
-                               lastScreenViewCenter.y - 334 };
+			doublePair pos = { lastScreenViewCenter.x - ( recalcOffsetX( 590 ) * gui_fov_scale ), 
+							   lastScreenViewCenter.y - ( recalcOffsetY( 334 ) * gui_fov_scale )};
+			pos.x += i * ( 30 * gui_fov_scale_hud );
             
-            pos.x += i * 30;
             drawSprite( 
                 mHungerBoxErasedSprites[ i % NUM_HUNGER_BOX_SPRITES ], 
-                pos );
+                pos, gui_fov_scale_hud );
             
             if( i < ourLiveObject->maxFoodStore ) {
                 drawSprite( 
                     mHungerBoxFillErasedSprites[ i % NUM_HUNGER_BOX_SPRITES ], 
-                    pos );
+                    pos, gui_fov_scale_hud );
                 }
             }
         
         
                 
         
-        doublePair pos = { lastScreenViewCenter.x + 546, 
-                           lastScreenViewCenter.y - 319 };
+        doublePair pos = { lastScreenViewCenter.x + ( recalcOffsetX( 546 ) * gui_fov_scale ), 
+                           lastScreenViewCenter.y - ( recalcOffsetY( 319 ) * gui_fov_scale )};
 
         if( mCurrentArrowHeat != -1 ) {
             
@@ -10465,12 +10479,12 @@ void LivingLifePage::draw( doublePair inViewCenter,
             
             float v = 1.0 - a->fade;
             setDrawColor( v, v, v, 1 );
-            pos2.x += ( a->heat - 0.5 ) * 120;
+            pos2.x += ( a->heat - 0.5 ) * ( 120 * gui_fov_scale_hud );
 
             // no sub pixel positions
             pos2.x = round( pos2.x );
 
-            drawSprite( mTempArrowErasedSprites[a->i], pos2 );
+            drawSprite( mTempArrowErasedSprites[a->i], pos2, gui_fov_scale_hud );
             }
         toggleAdditiveTextureColoring( false );
         
@@ -10478,19 +10492,19 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
         mCurrentArrowHeat = ourLiveObject->heat;
         
-        pos.x += ( mCurrentArrowHeat - 0.5 ) * 120;
+        pos.x += ( mCurrentArrowHeat - 0.5 ) * ( 120 * gui_fov_scale_hud );
         
         // no sub pixel positions
         pos.x = round( pos.x );
         
-        drawSprite( mTempArrowSprites[mCurrentArrowI], pos );
+        drawSprite( mTempArrowSprites[mCurrentArrowI], pos, gui_fov_scale_hud );
         
         toggleMultiplicativeBlend( false );
         
 
         for( int i=0; i<mOldDesStrings.size(); i++ ) {
             doublePair pos = { lastScreenViewCenter.x, 
-                               lastScreenViewCenter.y - 313 };
+                               lastScreenViewCenter.y - ( recalcOffsetY( 313 ) * gui_fov_scale )};
             float fade =
                 mOldDesFades.getElementDirect( i );
             
@@ -10499,9 +10513,8 @@ void LivingLifePage::draw( doublePair inViewCenter,
                 mOldDesStrings.getElementDirect( i ), pos, alignCenter );
             }
 
-        doublePair yumPos = { lastScreenViewCenter.x - 480, 
-                              lastScreenViewCenter.y - 313 };
-        
+        doublePair yumPos = { lastScreenViewCenter.x - ( recalcOffsetX( 480 ) * gui_fov_scale ), 
+                              lastScreenViewCenter.y - ( recalcOffsetY( 313 ) * gui_fov_scale )};
         setDrawColor( 0, 0, 0, 1 );
         if( mYumBonus > 0 ) {    
             char *yumString = autoSprintf( "+%d", mYumBonus );
@@ -10524,7 +10537,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
 
         doublePair atePos = { lastScreenViewCenter.x, 
-                              lastScreenViewCenter.y - 347 };
+                              lastScreenViewCenter.y - ( recalcOffsetY( 347 ) * gui_fov_scale )};
         
         int shortestFill = 100;
         
@@ -13445,7 +13458,7 @@ void LivingLifePage::step() {
                 }
             
 
-            mHintExtraOffset[ i ].x = - getLongestLine( mHintMessage[i] );
+            mHintExtraOffset[ i ].x = - getLongestLine( mHintMessage[i] ) / gui_fov_scale_hud;
             }
         else {
             // even in case where filter set, update this
@@ -13523,7 +13536,7 @@ void LivingLifePage::step() {
             double len = 
                 handwritingFont->measureString( mHintMessage[ lastSheet ] );
             
-            mHintExtraOffset[ lastSheet ].x = - len;
+            mHintExtraOffset[ lastSheet ].x = - len / gui_fov_scale_hud;
             }
         
         }
@@ -13707,7 +13720,21 @@ void LivingLifePage::step() {
             double longestLine = getLongestLine( 
                 (char*)( mTutorialMessage[ mLiveTutorialSheetIndex ] ) );
             
-            mTutorialExtraOffset[ mLiveTutorialSheetIndex ].x = longestLine;
+            int numLines;
+            char **lines = split( mTutorialMessage[ mLiveTutorialSheetIndex ], 
+                                  "#", &numLines );
+                
+            for( int l=0; l<numLines; l++ ) {
+                double len = handwritingFont->measureString( lines[l] );
+                
+                if( len > longestLine ) {
+                    longestLine = len;
+                    }
+                delete [] lines[l];
+                }
+            delete [] lines;
+
+            mTutorialExtraOffset[ mLiveTutorialSheetIndex ].x = longestLine / gui_fov_scale_hud;
             }
         }
     
@@ -18461,6 +18488,7 @@ void LivingLifePage::step() {
                 else if( o.id == ourID && 
                          strstr( lines[i], "X X" ) != NULL  ) {
                     // we died
+					changeFOV( SettingsManager::getFloatSetting( "fovDefault", 1.25f ) );
 
                     printf( "Got X X death message for our ID %d\n",
                             ourID );
@@ -18507,35 +18535,6 @@ void LivingLifePage::step() {
                         else if( strcmp( reasonString, "SID" ) == 0 ) {
                             mDeathReason = stringDuplicate( 
                                 translate( "reasonSID" ) );
-                            }
-                        else if( strcmp( reasonString, "suicide" ) == 0 ) {
-                            ObjectRecord *holdingO = NULL;
-                            
-                            if( ourLiveObject->holdingID > 0 ) {
-                                holdingO = getObject( ourLiveObject->holdingID );
-                                }
-							
-                            if( holdingO == NULL ) {
-                                mDeathReason = autoSprintf( 
-                                    "%s%s",
-                                    translate( "reasonKilled" ),
-                                    translate( "you" ) );
-                                }
-                            else {
-
-                                char *stringUpper = stringToUpperCase( 
-                                    holdingO->description );
-
-                                stripDescriptionComment( stringUpper );
-
-
-                                mDeathReason = autoSprintf( 
-                                    "%s%s",
-                                    translate( "reasonKilled" ),
-                                    stringUpper );
-                                
-                                delete [] stringUpper;
-                                }
                             }
                         else if( strcmp( reasonString, "age" ) == 0 ) {
                             mDeathReason = stringDuplicate( 
@@ -20936,10 +20935,14 @@ void LivingLifePage::step() {
         
 
         // current age
-        double age = computeCurrentAgeNoOverride( ourLiveObject );
+        double age = computeCurrentAge( ourLiveObject );
 
-        int sayCap = getSayLimit( age );
-
+        int sayCap = (int)( floor( age ) + 1 );
+        
+        if( ourLiveObject->lineage.size() == 0  && sayCap < 30 ) {
+            // eve has a larger say limit
+            sayCap = 30;
+            }
         if( vogMode ) {
             sayCap = 200;
             }
@@ -20994,7 +20997,7 @@ void LivingLifePage::step() {
             // push camera out in front
             
 
-            double moveScale = 40 * cameraFollowsObject->currentSpeed;
+            double moveScale = 40 * cameraFollowsObject->currentSpeed * gui_fov_scale;
             if( ( screenCenterPlayerOffsetX < 0 &&
                   cameraFollowsObject->currentMoveDirection.x < 0 )
                 ||
@@ -23639,6 +23642,24 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
         return;
         }
     
+	//FOV
+    int mouseButton = getLastMouseButton();
+	if( mouseButton == MouseButton::WHEELUP || mouseButton == MouseButton::WHEELDOWN ) {
+		float currentScale = SettingsManager::getFloatSetting( "fovScale", 1.0f );
+		float newScale = ( mouseButton == MouseButton::WHEELUP ) ? currentScale -= 0.25f : currentScale += 0.25f;
+		if ( isShiftKeyDown() ) {
+			newScale = ( mouseButton == MouseButton::WHEELUP ) ? SettingsManager::getFloatSetting( "fovDefault", 1.25f ) : SettingsManager::getFloatSetting( "fovMax", 2.25f );
+            }
+        if ( isCommandKeyDown() ) {
+            float currentHUDScale = SettingsManager::getFloatSetting( "fovScaleHUD", 1.25f );
+            newScale = ( mouseButton == MouseButton::WHEELUP ) ? currentHUDScale -= 0.25f : currentHUDScale += 0.25f;
+            changeHUDFOV( newScale );
+        } else {
+            changeFOV( newScale );
+            }
+		return;
+	}
+	
     if( vogMode ) {
         return;
         }
@@ -25708,6 +25729,13 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                 shouldMoveCamera = false;
                 }
             break;
+        case 96: { // grave
+            gui_hud_mode = SettingsManager::getIntSetting( "hudDrawMode", 0 );
+            gui_hud_mode = abs( ( gui_hud_mode + 1 ) % 3 );
+            SettingsManager::setSetting( "hudDrawMode", gui_hud_mode );
+			calcOffsetHUD();
+            }
+            break;
         case 9: // tab
             if( mCurrentHintObjectID != 0 ) {
                 
@@ -25824,7 +25852,8 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                                 }
                             else if( strstr( typedText,
                                              translate( "dieCommand" ) ) 
-                                     == typedText ) {
+                                     == typedText &&
+                                     computeCurrentAge( ourLiveObject ) < 2 ) {
                                 // die command issued from baby
                                 char *message = 
                                     autoSprintf( "DIE 0 0#" );
@@ -26159,6 +26188,52 @@ void LivingLifePage::specialKeyDown( int inKeyCode ) {
         // dead
         return;
         }
+		
+    //FOV
+    if( inKeyCode == MG_KEY_F1) {
+        sendToServerSocket( (char*)"EMOT 0 0 0#" );
+        return;
+        }
+    if( inKeyCode == MG_KEY_F2) {
+        sendToServerSocket( (char*)"EMOT 0 0 1#" );
+        return;
+        }
+    if( inKeyCode == MG_KEY_F3) {
+        sendToServerSocket( (char*)"EMOT 0 0 2#" );
+        return;
+        }
+    if( inKeyCode == MG_KEY_F4) {
+        sendToServerSocket( (char*)"EMOT 0 0 3#" );
+        return;
+        }
+    if( inKeyCode == MG_KEY_F5) {
+        sendToServerSocket( (char*)"EMOT 0 0 4#" );
+        return;
+        }
+    if( inKeyCode == MG_KEY_F6) {
+        sendToServerSocket( (char*)"EMOT 0 0 5#" );
+        return;
+        }
+    if( inKeyCode == MG_KEY_F7) {
+        sendToServerSocket( (char*)"EMOT 0 0 6#" );
+        return;
+        }
+	if( ( inKeyCode == MG_KEY_LEFT || 
+		inKeyCode == MG_KEY_RIGHT ) && ! vogMode ) {
+		float currentScale = SettingsManager::getFloatSetting( "fovScale", 1.0f );
+		float newScale = ( inKeyCode == MG_KEY_LEFT ) ? currentScale -= 0.25f : currentScale += 0.25f;
+        if ( isShiftKeyDown() ) {
+            newScale = ( inKeyCode == MG_KEY_LEFT ) ? SettingsManager::getFloatSetting( "fovDefault", 1.25f ) : SettingsManager::getFloatSetting( "fovMax", 2.25f );
+            }
+        if ( isCommandKeyDown() ) {
+            float currentHUDScale = SettingsManager::getFloatSetting( "fovScaleHUD", 1.25f );
+            newScale = ( inKeyCode == MG_KEY_LEFT ) ? currentHUDScale -= 0.25f : currentHUDScale += 0.25f;
+            changeHUDFOV( newScale );
+        } else {
+		    changeFOV( newScale );
+            }
+		return;
+	    }
 
     if( vogMode && ! TextField::isAnyFocused() ) {
         GridPos posOffset = { 0, 0 };
@@ -26693,5 +26768,93 @@ void LivingLifePage::updateLeadership() {
 
     
     
+    }
+
+
+void LivingLifePage::calcFontScale( float newScale, Font *font ) {
+	float scale = font->getScaleFactor();
+	scale /= gui_fov_scale;
+	scale *= newScale;
+	font->setScaleFactor( scale );
+    }
+
+void LivingLifePage::changeFOV( float newScale ) {
+	float fov_max = SettingsManager::getFloatSetting( "fovMax", 2.25f );
+	
+	if( newScale < 1.0f )
+		newScale = 1.0f;
+	else if( newScale > fov_max )
+		newScale = fov_max;
+	SettingsManager::setSetting( "fovScale", newScale );
+
+	LiveObject *ourLiveObject = getOurLiveObject();
+	if( ourLiveObject != NULL ) {
+		if( ourLiveObject->heldByAdultID != -1 ) {
+			ourLiveObject = getGameObject( ourLiveObject->heldByAdultID );
+			if( ourLiveObject == NULL ) {
+				ourLiveObject = getOurLiveObject();
+                }
+            }
+		screenCenterPlayerOffsetX = int( double( screenCenterPlayerOffsetX ) / gui_fov_scale * newScale );
+		screenCenterPlayerOffsetY = int( double( screenCenterPlayerOffsetY ) / gui_fov_scale * newScale );
+
+		doublePair centerOffset = sub( lastScreenViewCenter, mult( ourLiveObject->currentPos, CELL_D ) );
+		centerOffset = mult( centerOffset, 1. / gui_fov_scale );
+		centerOffset = mult( centerOffset, newScale );
+		centerOffset = add( mult( ourLiveObject->currentPos, CELL_D ), centerOffset );
+		lastScreenViewCenter.x = round( centerOffset.x );
+		lastScreenViewCenter.y = round( centerOffset.y );
+        }
+
+	calcFontScale( newScale, handwritingFont );
+	calcFontScale( newScale, pencilFont );
+	calcFontScale( newScale, pencilErasedFont );
+	
+	calcFontScale( newScale, mainFont );
+	calcFontScale( newScale, titleFont );
+	
+	gui_fov_scale = newScale;
+	gui_fov_scale_hud = gui_fov_scale / gui_fov_target_scale_hud;
+
+	minitech::viewWidth = 1280 * newScale;
+	minitech::viewHeight = 720 * newScale;
+	minitech::guiScale = 1.25 * gui_fov_scale_hud;
+
+	minitech::handwritingFont->setScaleFactor( 16*minitech::guiScale );
+	minitech::mainFont->setScaleFactor( 16*minitech::guiScale );
+	minitech::tinyHandwritingFont->setScaleFactor( 16/2*minitech::guiScale );
+	minitech::tinyMainFont->setScaleFactor( 16/2*minitech::guiScale );
+
+	calcOffsetHUD();
+
+	viewWidth = 1280 * newScale;
+	viewHeight = 720 * newScale;
+	setLetterbox( 1280 * newScale, 720 * newScale );
+	setViewSize( 1280 * newScale );
+    }
+
+void LivingLifePage::changeHUDFOV( float newScale ) {	
+	if( newScale < 1 ) {
+		newScale = 1.0f;
+	} else if ( newScale > 1.75f ) {
+		newScale = 1.75f;
+	}
+
+	gui_fov_target_scale_hud = newScale;
+    SettingsManager::setSetting( "fovScaleHUD", gui_fov_target_scale_hud );
+    gui_fov_scale_hud = gui_fov_scale / gui_fov_target_scale_hud;
+
+	calcOffsetHUD();
+
+	handwritingFont = new Font( "font_handwriting_32_32.tga", 3, 6, false, 16 * gui_fov_scale_hud );
+	pencilFont->copySpacing( handwritingFont );
+	pencilErasedFont->copySpacing( handwritingFont );
+	
+	changeFOV( SettingsManager::getFloatSetting( "fovScale", 1.0f ) );
+    }
+
+void LivingLifePage::calcOffsetHUD() {
+    gui_fov_offset_x = (int)(((1280 * gui_fov_target_scale_hud) - 1280)/2);
+    gui_fov_offset_y = (int)(((720 * gui_fov_target_scale_hud) - 720)/2);
     }
 
