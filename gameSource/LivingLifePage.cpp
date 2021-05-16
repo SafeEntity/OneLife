@@ -25925,6 +25925,7 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
 			setWaiting( false );
 			setSignal( "twinCancel" );
 		}
+		daylightMode = -1;
 	}
 	if (!vogMode) {
 		if (Phex::hasFocus && mSayField.isFocused()) mSayField.unfocusAll();
@@ -26091,7 +26092,6 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
         case 'e':
         case 'E':
             if( ! mSayField.isFocused() ) {
-				daylightMode = -1;
                 mEKeyDown = true;
                 }
             break;
