@@ -1366,7 +1366,6 @@ typedef enum messageType {
     TOOL_EXPERTS,
     TOOL_SLOTS,
     HOMELAND,
-    FLIP,
     CRAVING,
 	FLIP,
     PONG,
@@ -15973,18 +15972,6 @@ void LivingLifePage::step() {
                                 oldContained.push_back_other( 
                                     &( mMapContainedStacks[mapI] ) );
                                 }
-
-                            SimpleVector<int> oldContained;
-                            // player triggered
-                            // with no changed to container
-                            // look for contained change
-                            if( speed == 0 &&
-                                old == newID && 
-                                responsiblePlayerID < 0 ) {
-                            
-                                oldContained.push_back_other( 
-                                    &( mMapContainedStacks[mapI] ) );
-                                }
                             
                             mMapContainedStacks[mapI].deleteAll();
                             mMapSubContainedStacks[mapI].deleteAll();
@@ -26392,6 +26379,7 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                             else if( commandTyped( typedText, 
                                                    "unfollowCommand" ) ) {
                                 sendToServerSocket( (char*)"UNFOL 0 0#" );
+                                }
                             else if( strstr( typedText,
                                              translate( "helpCommand" ) ) 
                                      == typedText ) {
