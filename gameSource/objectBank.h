@@ -408,11 +408,6 @@ typedef struct ObjectRecord {
         int cornerVersionID;
 		
 		
-		char isTapOutTrigger;
-		
-        char autoDefaultTrans;
-
-        char noBackAccess;
         
 
         char isTapOutTrigger;
