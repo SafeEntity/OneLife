@@ -7,7 +7,7 @@ int binVersionNumber = versionNumber;
 // Please use this tag to describe your client honestly and uniquely
 // client_official is reserved for the unmodded client
 // do not include whitespace in your tag
-const char *clientTag = "client_official";
+const char *clientTag = "client_hetuw";
 
 
 
@@ -108,6 +108,7 @@ CustomRandomSource randSource( 34957197 );
 
 #include "whiteSprites.h"
 
+#include "hetuwmod.h"
 #include "message.h"
 
 
@@ -416,8 +417,16 @@ char *getHashSalt() {
     return stringDuplicate( SETTINGS_HASH_SALT );
     }
 
-
-
+void hetuwSetViewSize() {
+	viewWidth = HetuwMod::viewWidth;
+	viewHeight = HetuwMod::viewHeight;
+	visibleViewWidth = viewWidth;
+	setViewSize( viewWidth );
+	setLetterbox( visibleViewWidth, viewHeight );
+	if (livingLifePage != NULL) {
+		livingLifePage->hetuwSetPanelOffsets();
+	}
+}
 
 void initDrawString( int inWidth, int inHeight ) {
 
@@ -426,6 +435,9 @@ void initDrawString( int inWidth, int inHeight ) {
     toggleMipMapMinFilter( true );
     toggleTransparentCropping( true );
     
+	HetuwMod::init();
+	hetuwSetViewSize();
+
     mainFont = new Font( getFontTGAFileName(), 6, 16, false, 16 );
     mainFont->setMinimumPositionPrecision( 1 );
 
@@ -1165,6 +1177,7 @@ static void startConnecting() {
         serverPort = SettingsManager::getIntSetting( 
             "customServerPort", 8005 );
 
+		HetuwMod::onGotServerAddress(usingCustomServer, serverIP, serverPort);
         printf( "Using custom server address: %s:%d\n", 
                 serverIP, serverPort );
                     
@@ -1258,6 +1271,7 @@ void showReconnectPage() {
 
 void drawFrame( char inUpdate ) {    
 
+	HetuwMod::gameStep();
 
     if( !inUpdate ) {
         
@@ -1831,7 +1845,7 @@ void drawFrame( char inUpdate ) {
                     }
                 else {
                     
-
+					HetuwMod::onGotServerAddress(usingCustomServer, serverIP, serverPort);
                     printf( "Got server address: %s:%d\n", 
                             serverIP, serverPort );
                 
@@ -1841,7 +1855,29 @@ void drawFrame( char inUpdate ) {
                     
                     if( versionNumber < requiredVersion ) {
 
-                        if( SettingsManager::getIntSetting( 
+						if (!HetuwMod::bAutoDataUpdate) { // cancel auto update - hetuw mod
+               				lastScreenViewCenter.x = 0;
+                			lastScreenViewCenter.y = 0;
+                			setViewCenterPosition( lastScreenViewCenter.x, lastScreenViewCenter.y );
+                
+               				currentGamePage = existingAccountPage;
+                
+                			char *message = autoSprintf( translate( "versionMismatch" ),
+                                             versionNumber,
+                                             livingLifePage->
+                                             getRequiredVersion() );
+
+                			if( SettingsManager::getIntSetting( "useCustomServer", 0 ) ) {
+                    			existingAccountPage->showDisableCustomServerButton( true );
+                    		}
+                
+               				existingAccountPage->setStatusDirect( message, true );
+                			delete [] message;
+                
+                			existingAccountPage->setStatusPositiion( true );
+                			currentGamePage->base_makeActive( true );
+						}
+                        else if( SettingsManager::getIntSetting( 
                                 "useSteamUpdate", 0 ) ) {
                             
                             // flag SteamGate that app needs update
@@ -2297,7 +2333,6 @@ void keyDown( unsigned char inASCII ) {
         toggleMipMapMinFilter( false );
         }
     */
-
     
     if( isPaused() ) {
         // block general keyboard control during pause
@@ -2386,6 +2421,7 @@ void keyUp( unsigned char inASCII ) {
 
 
 void specialKeyDown( int inKey ) {
+
     if( isPaused() ) {
         return;
         }

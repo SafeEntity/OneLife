@@ -26,6 +26,7 @@
 
 #include "animationBank.h"
 
+#include "hetuwmod.h"
 
 #include "spriteDrawColorOverride.h"
 
@@ -4356,6 +4357,8 @@ HoldingPos drawObject( ObjectRecord *inObject, int inDrawBehindSlots,
         inFlipH = false;
         }
 
+	if (HetuwMod::objectDrawScale && inScale == 1.0) inScale = HetuwMod::objectDrawScale[inObject->id]; //minitech
+
     HoldingPos returnHoldingPos = { false, {0, 0}, 0 };
     
     SimpleVector <int> frontArmIndices;
@@ -4609,18 +4612,18 @@ HoldingPos drawObject( ObjectRecord *inObject, int inDrawBehindSlots,
             if( inClothing.bottom != NULL ) {
                 drawObject( inClothing.bottom, 2, 
                             bottomPos, bottomRot, true,
-                            inFlipH, -1, 0, false, false, emptyClothing );
+                            inFlipH, -1, 0, false, false, emptyClothing, inScale );
                 }
             if( inClothing.tunic != NULL ) {
                 drawObject( inClothing.tunic, 2,
                             tunicPos, tunicRot, true,
-                            inFlipH, -1, 0, false, false, emptyClothing );
+                            inFlipH, -1, 0, false, false, emptyClothing, inScale );
                 }
             if( inClothing.backpack != NULL ) {
                 drawObject( inClothing.backpack, 2, 
                             backpackPos, backpackRot,
                             true,
-                            inFlipH, -1, 0, false, false, emptyClothing );
+                            inFlipH, -1, 0, false, false, emptyClothing, inScale );
                 }
             }
 
@@ -4730,13 +4733,13 @@ HoldingPos drawObject( ObjectRecord *inObject, int inDrawBehindSlots,
             inClothing.backShoe != NULL && i == backFootIndex ) {
             drawObject( inClothing.backShoe, 2,
                         backShoePos, backShoeRot, true,
-                        inFlipH, -1, 0, false, false, emptyClothing );
+                        inFlipH, -1, 0, false, false, emptyClothing, inScale );
             }
         else if( ! skipSprite &&
                  inClothing.frontShoe != NULL && i == frontFootIndex ) {
             drawObject( inClothing.frontShoe, 2,
                         frontShoePos, frontShoeRot, true,
-                        inFlipH, -1, 0, false, false, emptyClothing );
+                        inFlipH, -1, 0, false, false, emptyClothing, inScale );
             }
 
         }    
@@ -4902,13 +4905,14 @@ HoldingPos drawObject( ObjectRecord *inObject, doublePair inPos, double inRot,
 
                     subPos = add( subPos, pos );
                     
+					// draws object inside containers inside containers
                     drawObject( subContained, 2, subPos, subRot, 
                                 false, inFlipH,
                                 inAge, 0, false, false, emptyClothing );
                     }
                 }
                 
-            // in front of sub-contained
+            // in front of sub-contained - draws containers inside containers
             drawObject( contained, 1, pos, rot, false, inFlipH, inAge,
                         0,
                         false,
@@ -4918,7 +4922,7 @@ HoldingPos drawObject( ObjectRecord *inObject, doublePair inPos, double inRot,
             }
         else {
             // no sub-contained
-            // draw contained all at once
+            // draw contained all at once - draws objects inside containers
             drawObject( contained, 2, pos, rot, false, inFlipH, inAge,
                         0,
                         false,
@@ -4930,6 +4934,7 @@ HoldingPos drawObject( ObjectRecord *inObject, doublePair inPos, double inRot,
     
     setDrawnObjectContained( false );
 
+	// draws container containing objects and some clothes?
     return drawObject( inObject, 1, inPos, inRot, inWorn, inFlipH, inAge, 
                        inHideClosestArm,
                        inHideAllLimbs,

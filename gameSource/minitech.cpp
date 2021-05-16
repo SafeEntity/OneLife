@@ -828,7 +828,7 @@ vector<TransRecord*> minitech::sortProdTrans(vector<TransRecord*> unsortedTrans)
 		
 		int idA = trans->actor;
 		int idB = trans->target;
-		int idC = trans->newActor;
+		//int idC = trans->newActor;
 		//int idD = trans->newTarget;
 		//int holdingID = getDummyParent(ourLiveObject->holdingID);
 		
@@ -1231,9 +1231,9 @@ void minitech::updateDrawTwoTech() {
 			}
 		}
 		
-		if (currHintObjId > 0) {
+		if (highlightObjId > 0) {
 			GridPos currentPos = {currentX, currentY};
-			GridPos closestHintObjPos = getClosestTile(currentPos, currHintObjId);
+			GridPos closestHintObjPos = getClosestTile(currentPos, highlightObjId);
 			if ( !(closestHintObjPos.x == 9999 && closestHintObjPos.y == 9999) ) {
 				drawTileRect(closestHintObjPos.x, closestHintObjPos.y, "blue", true);
 			}
@@ -1329,7 +1329,6 @@ void minitech::updateDrawTwoTech() {
 	float headerWidth = recWidth;
 	float headerHeight = (paddingY + iconSize + barHeight + paddingY);
 	doublePair headerLT = {posLT.x, posLT.y + separatorHeight + headerHeight};
-	//doublePair headerLCen = {headerLT.x + paddingX, headerLT.y - iconSize/2};
 	doublePair headerCen = {headerLT.x + headerWidth / 2, headerLT.y - headerHeight / 2};
 	setDrawColor( 0, 0, 0, 0.8 );
 	drawRect( headerCen, headerWidth/2, headerHeight/2);
@@ -1457,7 +1456,7 @@ void minitech::inputHintStrToSearch(string hintStr) {
 			});
 			
 			vector<ObjectRecord*> sortedHits(unsortedHits.size());
-			for ( int i=0; i<unsortedHits.size(); i++ ) {
+			for ( int i=0; i<(int)unsortedHits.size(); i++ ) {
 				sortedHits[i] = unsortedHits[index[i]];
 			}
 			
@@ -1503,6 +1502,7 @@ void minitech::livingLifeDraw(float mX, float mY) {
 	
 	if ( lastHintObjId == 0 && currentHintObjId != 0 ) minitechMinimized = false;
 	
+/*/
 	if (hintStr != lastHintStr) {
 		lastHintStr = hintStr;
         int numHits = 0;
@@ -1539,6 +1539,7 @@ void minitech::livingLifeDraw(float mX, float mY) {
 		}
 	}
 	
+/*/
 	if ( (lastHintObjId != currentHintObjId || lastUseOrMake != useOrMake) && !minitechMinimized ) {
 		lastHintObjId = currentHintObjId;
 		lastUseOrMake = useOrMake;

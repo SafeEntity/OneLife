@@ -310,7 +310,6 @@ typedef struct LiveObject {
         char shouldDrawPathMarks;
         double pathMarkFade;
         
-
         // messages that arrive while we're still showing our current
         // movement animation
         SimpleVector<char*> pendingReceivedMessages;
@@ -499,6 +498,7 @@ class LivingLifePage : public GamePage, public ActionListener {
 
         LivingLifePage();
         ~LivingLifePage();
+
         
         void clearMap();
         
@@ -549,6 +549,35 @@ class LivingLifePage : public GamePage, public ActionListener {
 		char *minitechGetDisplayObjectDescription(int objId);
 		bool minitechSayFieldIsFocused() { return mSayField.isFocused(); }
 
+		void hetuwSetPanelOffsets();
+		bool hetuwSayFieldIsFocused() { return mSayField.isFocused(); }
+		doublePair hetuwGetLastScreenViewCenter();
+		void hetuwDrawMainFont( const char* str, doublePair drawPos, TextAlignment align = alignLeft  );
+		double hetuwMeasureStringMainFont(const char* str);
+		void hetuwDrawScaledMainFont( const char* str, doublePair drawPos, double customScale, TextAlignment align = alignLeft  );
+		double hetuwMeasureScaledMainFont(const char* str, double customScale );
+		void hetuwDrawWithHandwritingFont( const char* str, doublePair drawPos, TextAlignment align = alignLeft  );
+		double hetuwMeasureStringHandwritingFont(const char* str);
+		void hetuwDrawScaledHandwritingFont( const char* str, doublePair drawPos, double customScale, TextAlignment align = alignLeft  );
+		double hetuwMeasureScaledHandwritingFont(const char* str, double customScale );
+		void hetuwSay(const char* text);
+		void hetuwSetNextActionMessage( const char* str, int x, int y );
+		void hetuwSetNextActionDropping( bool b );
+		void hetuwSetNextActionEating( bool b );
+		int hetuwGetMapI( int tileX, int tileY );
+		int hetuwGetObjId( int mapX, int mapY );
+		void hetuwClickMove( float x, float y );
+		double hetuwGetAge( LiveObject *inObj );
+		void hetuwGetStringAge( char* str, LiveObject *inObj );
+		int hetuwGetTextLengthLimit();
+		void hetuwGetMouseXY( int &x, int &y );
+		bool hetuwMouseIsDown();
+		void hetuwToggleFixCamera();
+		void hetuwSetTakingPhoto(bool takingPhoto);
+		bool hetuwIsVogMode();
+		doublePair hetuwGetVogPos();
+		char getTransHintable( TransRecord *inTrans ); // hetuw mod - changed from static and made visible to public
+		
         virtual void actionPerformed( GUIComponent *inTarget );
         
 
@@ -590,17 +619,19 @@ class LivingLifePage : public GamePage, public ActionListener {
 
         // conversion function for received coordinates into local coords
         void applyReceiveOffset( int *inX, int *inY );
+		public: // hetuw mod
+		bool hetuwUsesGlobalOffset();
         // converts local coors for sending back to server
         int sendX( int inX );
         int sendY( int inY );
 
 
         int mMapD;
-		public: // minitech
+	public: // minitech
         int *mMap;
-        protected: // minitech
         int *mMapBiomes;
         int *mMapFloors;
+	protected: // hetuw mod
 
         char *mMapCellDrawnFlags;
 
@@ -969,13 +1000,14 @@ class LivingLifePage : public GamePage, public ActionListener {
         char mForceGroundClick;
         
 
-		public: // minitech
+	public: // hetuw mod
         LiveObject *getOurLiveObject();
         LiveObject *getLiveObject( int inID );
-        protected: // minitech
+    protected: // hetuw mod
 
         void clearLiveObjects();
         
+		public: // hetuw mod
         // inSpeaker can be NULL
         void drawChalkBackgroundString( doublePair inPos, 
                                         const char *inString,
@@ -986,6 +1018,7 @@ class LivingLifePage : public GamePage, public ActionListener {
                                         FloatColor *inForceBlotColor = NULL,
                                         FloatColor *inForceTextColor = NULL );
         
+        protected: // hetuw mod
         
         void drawOffScreenSounds();
         

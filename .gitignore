@@ -1,11 +1,13 @@
 
-
+*.swp
 *.o
 *.dep
 *.dep2
 *~
 *.orig
 Makefile*
+*.zip
+*.db
 
 callgrind.out*
 leak.out*

@@ -168,7 +168,7 @@ ExistingAccountPage::ExistingAccountPage()
     
     mAtSignButton.setMouseOverTip( translate( "atSignTip" ) );
 
-    mLoginButton.setMouseOverTip( translate( "saveTip" ) );
+    mLoginButton.setMouseOverTip( translate( "TYPE -KEY ON OUR DISCORD TO GET ACCOUNT" ) );
     mClearAccountButton.setMouseOverTip( translate( "clearAccountTip" ) );
     
     mFriendsButton.setMouseOverTip( translate( "friendsTip" ) );
@@ -351,6 +351,10 @@ void ExistingAccountPage::makeActive( char inFresh ) {
         mReviewButton.setVisible( true );
         mViewAccountButton.setVisible( false );
         }
+		
+	mFamilyTreesButton.setVisible( false );
+	mReviewButton.setVisible( false );
+	mTechTreeButton.setVisible( false );
     }
 
 
@@ -368,7 +372,7 @@ void ExistingAccountPage::step() {
                              mKeyField.isFocused() );
     mPasteEmailButton.setVisible( isClipboardSupported() &&
                                   mEmailField.isFocused() );
-    mAtSignButton.setVisible( mEmailField.isFocused() );
+    // mAtSignButton.setVisible( mEmailField.isFocused() );
     }
 
 
